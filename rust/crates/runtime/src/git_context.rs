@@ -196,6 +196,7 @@ mod tests {
         git(&root, &["init", "--quiet", "--initial-branch=main"]);
         git(&root, &["config", "user.email", "tests@example.com"]);
         git(&root, &["config", "user.name", "Git Context Tests"]);
+        git(&root, &["config", "commit.gpgsign", "false"]);
         fs::write(root.join("a.txt"), "a\n").expect("write a");
         git(&root, &["add", "a.txt"]);
         git(&root, &["commit", "-m", "first commit", "--quiet"]);
@@ -225,6 +226,7 @@ mod tests {
         git(&root, &["init", "--quiet", "--initial-branch=main"]);
         git(&root, &["config", "user.email", "tests@example.com"]);
         git(&root, &["config", "user.name", "Git Context Tests"]);
+        git(&root, &["config", "commit.gpgsign", "false"]);
         fs::write(root.join("init.txt"), "init\n").expect("write init");
         git(&root, &["add", "init.txt"]);
         git(&root, &["commit", "-m", "initial", "--quiet"]);
@@ -295,6 +297,7 @@ mod tests {
         git(&root, &["init", "--quiet", "--initial-branch=main"]);
         git(&root, &["config", "user.email", "tests@example.com"]);
         git(&root, &["config", "user.name", "Git Context Tests"]);
+        git(&root, &["config", "commit.gpgsign", "false"]);
         for i in 1..=8 {
             let name = format!("file{i}.txt");
             fs::write(root.join(&name), format!("{i}\n")).expect("write file");

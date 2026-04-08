@@ -253,7 +253,6 @@ fn read_git_status(cwd: &Path) -> Option<String> {
     }
 }
 
-
 fn read_git_diff(cwd: &Path) -> Option<String> {
     let mut sections = Vec::new();
 
@@ -682,6 +681,11 @@ mod tests {
             .current_dir(&root)
             .status()
             .expect("git config name should run");
+        std::process::Command::new("git")
+            .args(["config", "commit.gpgsign", "false"])
+            .current_dir(&root)
+            .status()
+            .expect("git config gpgsign should run");
         for (file, message) in [
             ("a.txt", "first commit"),
             ("b.txt", "second commit"),
@@ -715,8 +719,16 @@ mod tests {
             .render();
 
         // then: branch, recent commits and staged files are present in context
-        let gc = context.git_context.as_ref().expect("git context should be present");
-        let commits: String = gc.recent_commits.iter().map(|c| c.subject.clone()).collect::<Vec<_>>().join("\n");
+        let gc = context
+            .git_context
+            .as_ref()
+            .expect("git context should be present");
+        let commits: String = gc
+            .recent_commits
+            .iter()
+            .map(|c| c.subject.clone())
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(commits.contains("first commit"));
         assert!(commits.contains("second commit"));
         assert!(commits.contains("third commit"));

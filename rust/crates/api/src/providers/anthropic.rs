@@ -487,6 +487,10 @@ impl AnthropicClient {
     }
 
     async fn preflight_message_request(&self, request: &MessageRequest) -> Result<(), ApiError> {
+        // Local estimate first — short-circuits before any HTTP round-trip for obviously
+        // oversized requests, which keeps the happy path free of an extra API call.
+        super::preflight_message_request(request)?;
+
         let Some(limit) = model_token_limit(&request.model) else {
             return Ok(());
         };
@@ -515,7 +519,10 @@ impl AnthropicClient {
             input_tokens: u32,
         }
 
-        let request_url = format!("{}/v1/messages/count_tokens", self.base_url.trim_end_matches('/'));
+        let request_url = format!(
+            "{}/v1/messages/count_tokens",
+            self.base_url.trim_end_matches('/')
+        );
         let mut request_body = self.request_profile.render_json_body(request)?;
         strip_unsupported_beta_body_fields(&mut request_body);
         let response = self
@@ -528,12 +535,7 @@ impl AnthropicClient {
         let response = expect_success(response).await?;
         let body = response.text().await.map_err(ApiError::from)?;
         let parsed = serde_json::from_str::<CountTokensResponse>(&body).map_err(|error| {
-            ApiError::json_deserialize(
-                "Anthropic count_tokens",
-                &request.model,
-                &body,
-                error,
-            )
+            ApiError::json_deserialize("Anthropic count_tokens", &request.model, &body, error)
         })?;
         Ok(parsed.input_tokens)
     }
@@ -597,7 +599,9 @@ fn jitter_for_base(base: Duration) -> Duration {
     let tick = JITTER_COUNTER.fetch_add(1, Ordering::Relaxed);
     // splitmix64 finalizer — mixes the low bits so large bases still see
     // jitter across their full range instead of being clamped to subsec nanos.
-    let mut mixed = raw_nanos.wrapping_add(tick).wrapping_add(0x9E37_79B9_7F4A_7C15);
+    let mut mixed = raw_nanos
+        .wrapping_add(tick)
+        .wrapping_add(0x9E37_79B9_7F4A_7C15);
     mixed = (mixed ^ (mixed >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     mixed = (mixed ^ (mixed >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
     mixed ^= mixed >> 31;
@@ -1021,19 +1025,24 @@ mod tests {
     #[test]
     fn read_api_key_requires_presence() {
         let _guard = env_lock();
+        let config_home = temp_config_home();
+        std::env::set_var("CLAW_CONFIG_HOME", &config_home);
         std::env::remove_var("ANTHROPIC_AUTH_TOKEN");
         std::env::remove_var("ANTHROPIC_API_KEY");
-        std::env::remove_var("CLAW_CONFIG_HOME");
         let error = super::read_api_key().expect_err("missing key should error");
         assert!(matches!(
             error,
             crate::error::ApiError::MissingCredentials { .. }
         ));
+        std::env::remove_var("CLAW_CONFIG_HOME");
+        cleanup_temp_config_home(&config_home);
     }
 
     #[test]
     fn read_api_key_requires_non_empty_value() {
         let _guard = env_lock();
+        let config_home = temp_config_home();
+        std::env::set_var("CLAW_CONFIG_HOME", &config_home);
         std::env::set_var("ANTHROPIC_AUTH_TOKEN", "");
         std::env::remove_var("ANTHROPIC_API_KEY");
         let error = super::read_api_key().expect_err("empty key should error");
@@ -1042,6 +1051,8 @@ mod tests {
             crate::error::ApiError::MissingCredentials { .. }
         ));
         std::env::remove_var("ANTHROPIC_AUTH_TOKEN");
+        std::env::remove_var("CLAW_CONFIG_HOME");
+        cleanup_temp_config_home(&config_home);
     }
 
     #[test]

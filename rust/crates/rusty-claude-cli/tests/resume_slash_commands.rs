@@ -180,8 +180,15 @@ fn resume_latest_restores_the_most_recent_managed_session() {
     // given
     let temp_dir = unique_temp_dir("resume-latest");
     let project_dir = temp_dir.join("project");
-    let sessions_dir = project_dir.join(".claw").join("sessions");
-    fs::create_dir_all(&sessions_dir).expect("sessions dir should exist");
+    fs::create_dir_all(&project_dir).expect("project dir should exist");
+    // Canonicalize so that the fingerprint matches what the claw binary computes via
+    // env::current_dir() (which resolves symlinks — /var → /private/var on macOS).
+    let project_dir = fs::canonicalize(&project_dir).expect("project dir should canonicalize");
+
+    // Sessions live in a fingerprinted subdirectory — use SessionStore to get the right path.
+    let store =
+        runtime::SessionStore::from_cwd(&project_dir).expect("session store should initialise");
+    let sessions_dir = store.sessions_dir().to_path_buf();
 
     let older_path = sessions_dir.join("session-older.jsonl");
     let newer_path = sessions_dir.join("session-newer.jsonl");

@@ -185,6 +185,7 @@ mod tests {
         run(path, &["init", "--quiet", "-b", "main"]);
         run(path, &["config", "user.email", "tests@example.com"]);
         run(path, &["config", "user.name", "Stale Branch Tests"]);
+        run(path, &["config", "commit.gpgsign", "false"]);
         fs::write(path.join("init.txt"), "initial\n").expect("write init file");
         run(path, &["add", "."]);
         run(path, &["commit", "-m", "initial commit", "--quiet"]);
